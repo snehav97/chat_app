@@ -84,16 +84,49 @@ class _ChatRoomState extends State<ChatRoom> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
     return Scaffold(
       appBar: AppBar(
-        title: Text(widget.peerName),
-        centerTitle: true,
+        flexibleSpace: Container(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              colors: [Color(0xFF536976), Color(0xFF292E49)],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+          ),
+        ),
+        elevation: 0,
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(widget.peerName, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 16)),
+            const Text('Online', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w400, color: Colors.white70)),
+          ],
+        ),
+        actions: [
+          IconButton(icon: const Icon(Icons.call), onPressed: () {}),
+          IconButton(icon: const Icon(Icons.videocam), onPressed: () {}),
+          PopupMenuButton(
+            itemBuilder: (ctx) => [
+              const PopupMenuItem(child: Text('View Contact')),
+              const PopupMenuItem(child: Text('Media, Links, & Docs')),
+              const PopupMenuItem(child: Text('Search')),
+            ],
+          ),
+        ],
       ),
-      body: SafeArea(
+      body: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            colors: [Color(0xFFF2F6FF), Color(0xFFE8F0FF)],
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+          ),
+        ),
         child: Column(
           children: [
+            // Messages
             Expanded(
               child: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
                 stream: ChatService.messagesStream(_chatId),
@@ -102,7 +135,7 @@ class _ChatRoomState extends State<ChatRoom> {
                     return const Center(child: Text('Something went wrong'));
                   }
                   if (!snapshot.hasData) {
-                    return const Center(child: CircularProgressIndicator());
+                    return const Center(child: CircularProgressIndicator(color: Color(0xFF536976)));
                   }
 
                   final docs = snapshot.data!.docs;
@@ -120,21 +153,23 @@ class _ChatRoomState extends State<ChatRoom> {
                     }
 
                     final bool isMe = user != null && uid == user!.uid;
-                    final avatarLabel = (email.isNotEmpty ? email[0].toUpperCase() : (uid.isNotEmpty ? uid[0].toUpperCase() : '?'));
 
                     return Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 12),
+                      padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 12),
                       child: Row(
                         mainAxisAlignment: isMe ? MainAxisAlignment.end : MainAxisAlignment.start,
-                        crossAxisAlignment: CrossAxisAlignment.end,
                         children: [
-                          if (!isMe)
+                          if (!isMe) ...[
                             CircleAvatar(
-                              radius: 16,
-                              backgroundColor: Colors.blueGrey.shade200,
-                              child: Text(avatarLabel, style: const TextStyle(fontSize: 14, color: Colors.white)),
+                              radius: 18,
+                              backgroundColor: const Color(0xFF536976).withOpacity(0.2),
+                              child: Text(
+                                email.isNotEmpty ? email[0].toUpperCase() : '?',
+                                style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF536976)),
+                              ),
                             ),
-                          const SizedBox(width: 8),
+                            const SizedBox(width: 8),
+                          ],
                           Flexible(
                             child: Column(
                               crossAxisAlignment: isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
@@ -142,38 +177,34 @@ class _ChatRoomState extends State<ChatRoom> {
                                 Container(
                                   padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 14),
                                   decoration: BoxDecoration(
-                                    color: isMe ? Colors.blueAccent.shade100 : Colors.white,
+                                    color: isMe ? const Color(0xFFE3F2FD) : Colors.white,
                                     boxShadow: [
                                       BoxShadow(
-                                        color: Colors.black.withOpacity(0.06),
+                                        color: Colors.black.withOpacity(0.05),
                                         blurRadius: 4,
-                                        offset: const Offset(0, 2),
+                                        offset: const Offset(0, 1),
                                       )
                                     ],
                                     borderRadius: BorderRadius.only(
-                                      topLeft: const Radius.circular(12),
-                                      topRight: const Radius.circular(12),
-                                      bottomLeft: Radius.circular(isMe ? 12 : 0),
-                                      bottomRight: Radius.circular(isMe ? 0 : 12),
+                                      topLeft: const Radius.circular(16),
+                                      topRight: const Radius.circular(16),
+                                      bottomLeft: Radius.circular(isMe ? 16 : 2),
+                                      bottomRight: Radius.circular(isMe ? 2 : 16),
                                     ),
                                   ),
-                                  child: Text(text, style: theme.textTheme.bodyMedium?.copyWith(fontSize: 15)),
-                                ),
-                                if (time.isNotEmpty)
-                                  Padding(
-                                    padding: const EdgeInsets.only(top: 4),
-                                    child: Text(time, style: theme.textTheme.bodySmall?.copyWith(color: Colors.grey[600])),
+                                  child: Text(
+                                    text,
+                                    style: const TextStyle(fontSize: 15, color: Colors.black87),
                                   ),
+                                ),
+                                Padding(
+                                  padding: const EdgeInsets.only(top: 4),
+                                  child: Text(time, style: const TextStyle(color: Colors.grey, fontSize: 11)),
+                                ),
                               ],
                             ),
                           ),
-                          const SizedBox(width: 8),
-                          if (isMe)
-                            CircleAvatar(
-                              radius: 16,
-                              backgroundColor: Colors.indigo.shade400,
-                              child: Text(avatarLabel, style: const TextStyle(fontSize: 14, color: Colors.white)),
-                            ),
+                          if (isMe) const SizedBox(width: 8),
                         ],
                       ),
                     );
@@ -191,41 +222,76 @@ class _ChatRoomState extends State<ChatRoom> {
                     }
                   });
 
-                  return ListView(controller: _scrollController, padding: const EdgeInsets.symmetric(vertical: 8), children: items);
+                  return ListView(
+                    controller: _scrollController,
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    children: items,
+                  );
                 },
               ),
             ),
-
+            // Input area
             Container(
-              padding: const EdgeInsets.all(10),
+              padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
                 color: Colors.white.withOpacity(0.95),
                 boxShadow: [
-                  BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 8, offset: const Offset(0, -2)),
-                ],
-              ),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: TextField(
-                      controller: _controller,
-                      decoration: InputDecoration(
-                        hintText: "Message ${widget.peerName}",
-                        fillColor: Colors.grey[100],
-                        filled: true,
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(30), borderSide: BorderSide.none),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Container(
-                    decoration: BoxDecoration(color: Colors.indigo, shape: BoxShape.circle),
-                    child: IconButton(icon: const Icon(Icons.send, color: Colors.white), onPressed: _send),
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.05),
+                    blurRadius: 8,
+                    offset: const Offset(0, -2),
                   )
                 ],
               ),
-            )
+              child: SafeArea(
+                child: Row(
+                  children: [
+                    IconButton(
+                      icon: const Icon(Icons.add_circle, color: Color(0xFF536976), size: 28),
+                      onPressed: () {},
+                    ),
+                    Expanded(
+                      child: TextField(
+                        controller: _controller,
+                        decoration: InputDecoration(
+                          hintText: 'Message',
+                          fillColor: Colors.grey[100],
+                          filled: true,
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(24),
+                            borderSide: BorderSide.none,
+                          ),
+                          suffixIcon: Padding(
+                            padding: const EdgeInsets.only(right: 8),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                IconButton(
+                                  icon: const Icon(Icons.emoji_emotions, color: Color(0xFF536976), size: 22),
+                                  onPressed: () {},
+                                ),
+                                IconButton(
+                                  icon: const Icon(Icons.attach_file, color: Color(0xFF536976), size: 22),
+                                  onPressed: () {},
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    FloatingActionButton(
+                      onPressed: _send,
+                      backgroundColor: const Color(0xFF536976),
+                      mini: true,
+                      child: const Icon(Icons.send, color: Colors.white, size: 20),
+                    ),
+                  ],
+                ),
+              ),
+            ),
           ],
         ),
       ),

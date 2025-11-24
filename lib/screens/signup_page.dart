@@ -1,4 +1,5 @@
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 
 class SignupPage extends StatefulWidget {
@@ -10,6 +11,7 @@ class SignupPage extends StatefulWidget {
 
 class _SignupPageState extends State<SignupPage> {
   final TextEditingController emailController = TextEditingController();
+  final TextEditingController displayNameController = TextEditingController();
   final TextEditingController passwordController = TextEditingController();
   final TextEditingController confirmPasswordController = TextEditingController();
   bool isLoading = false;
@@ -18,8 +20,14 @@ class _SignupPageState extends State<SignupPage> {
 
   Future<void> signupUser() async {
     if (emailController.text.isEmpty ||
+        displayNameController.text.isEmpty ||
         passwordController.text.isEmpty ||
-        confirmPasswordController.text.isEmpty) return;
+        confirmPasswordController.text.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Please fill in all fields")),
+      );
+      return;
+    }
 
     if (passwordController.text != confirmPasswordController.text) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -33,22 +41,60 @@ class _SignupPageState extends State<SignupPage> {
     });
 
     try {
-      await FirebaseAuth.instance.createUserWithEmailAndPassword(
+      final userCredential = await FirebaseAuth.instance.createUserWithEmailAndPassword(
         email: emailController.text.trim(),
         password: passwordController.text.trim(),
       );
 
+      // Save user data to Firestore with retry logic
+      if (userCredential.user != null) {
+        try {
+          // Add a small delay to ensure auth token is properly propagated
+          await Future.delayed(const Duration(milliseconds: 500));
+          
+          await FirebaseFirestore.instance
+              .collection('users')
+              .doc(userCredential.user!.uid)
+              .set({
+                'uid': userCredential.user!.uid,
+                'email': emailController.text.trim(),
+                'displayName': displayNameController.text.trim(),
+                'createdAt': FieldValue.serverTimestamp(),
+              });
+          
+          print('User data saved successfully to Firestore');
+        } catch (firestoreError) {
+          print('Firestore write error: $firestoreError');
+          if (!mounted) return;
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Failed to save user data: $firestoreError')),
+          );
+          return;
+        }
+      }
+
       if (!mounted) return;
 
+      // AuthGate will handle navigation based on auth state
       Navigator.pushNamedAndRemoveUntil(context, '/chat', (route) => false);
     } on FirebaseAuthException catch (e) {
+      print('Firebase Auth error: ${e.code} - ${e.message}');
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(e.message ?? "Signup failed")),
       );
+    } catch (e) {
+      print('Unexpected error during signup: $e');
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Unexpected error: $e')),
+      );
     } finally {
-      setState(() {
-        isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          isLoading = false;
+        });
+      }
     }
   }
 
@@ -110,6 +156,20 @@ class _SignupPageState extends State<SignupPage> {
                         const SizedBox(height: 12),
                         Text('Create Account', style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w600)),
                         const SizedBox(height: 8),
+                        TextField(
+                          controller: displayNameController,
+                          decoration: InputDecoration(
+                            hintText: 'Display Name',
+                            filled: true,
+                            fillColor: Colors.grey[100],
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide: BorderSide.none,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 12),
                         TextField(
                           controller: emailController,
                           keyboardType: TextInputType.emailAddress,

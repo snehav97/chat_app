@@ -9,6 +9,25 @@ class ChatService {
     return chatId;
   }
 
+  // Fetch user's display name by UID
+  static Future<String> getUserDisplayName(String uid) async {
+    try {
+      final doc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(uid)
+          .get();
+      
+      if (doc.exists) {
+        return doc.data()?['displayName'] ?? uid;
+      }
+      return uid;
+    } catch (e) {
+      print('[ChatService.getUserDisplayName] Error fetching display name for $uid: $e');
+      // Return UID if there's any error (permission denied, etc.)
+      return uid;
+    }
+  }
+
   // Stream messages for a given chat
   static Stream<QuerySnapshot<Map<String, dynamic>>> messagesStream(String chatId) {
     print('[ChatService.messagesStream] Listening to messages for chat: $chatId');
@@ -71,6 +90,28 @@ class ChatService {
       print('Error: $e');
       print('Stack Trace: $st');
       print('=====================================');
+      rethrow;
+    }
+  }
+
+  // Initialize or update chat with peer information
+  static Future<void> initializeChat({
+    required String chatId,
+    required List<String> participants,
+    required String peerId,
+    required String peerName,
+  }) async {
+    try {
+      final chatRef = FirebaseFirestore.instance.collection('chats').doc(chatId);
+      await chatRef.set({
+        'participants': participants,
+        'peerName': peerName,
+        'peerId': peerId,
+        'createdAt': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
+      print('[ChatService.initializeChat] Chat initialized: $chatId with peer: $peerName');
+    } catch (e) {
+      print('[ChatService.initializeChat] Error: $e');
       rethrow;
     }
   }
