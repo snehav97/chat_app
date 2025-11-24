@@ -15,16 +15,39 @@ class _ChatPageState extends State<ChatPage> {
 
   // SEND MESSAGE TO FIRESTORE
   Future<void> sendMessage() async {
-    if (messageController.text.trim().isEmpty) return;
+    final text = messageController.text.trim();
+    if (text.isEmpty) return;
 
-    await FirebaseFirestore.instance.collection('messages').add({
-      'text': messageController.text.trim(),
-      'uid': user!.uid,
-      'email': user!.email,
-      'timestamp': FieldValue.serverTimestamp(),
-    });
+    if (user == null) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('You must be signed in to send messages')),
+      );
+      Navigator.pushNamed(context, '/login');
+      return;
+    }
 
-    messageController.clear();
+    try {
+      await FirebaseFirestore.instance.collection('messages').add({
+        'text': text,
+        'senderId': user!.uid,
+        'email': user!.email,
+        'timestamp': FieldValue.serverTimestamp(),
+      });
+
+      messageController.clear();
+    } on FirebaseException catch (e) {
+      // Firestore permission errors surface here
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(e.message ?? 'Failed to send message')),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error: $e')),
+      );
+    }
   }
 
   // LOGOUT FUNCTION
@@ -73,11 +96,11 @@ class _ChatPageState extends State<ChatPage> {
                 final items = docs.map((doc) {
                   final data = doc.data();
 
-                  if (!data.containsKey('uid') || !data.containsKey('text')) {
+                  if ((!data.containsKey('uid') && !data.containsKey('senderId')) || !data.containsKey('text')) {
                     return const SizedBox.shrink();
                   }
 
-                  final uid = data['uid'] as String? ?? '';
+                  final uid = (data['uid'] ?? data['senderId']) as String? ?? '';
                   final text = data['text']?.toString() ?? '';
                   final bool isMe = uid.isNotEmpty && user != null && uid == user!.uid;
 
